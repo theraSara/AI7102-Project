@@ -2,11 +2,8 @@ import json
 import numpy as np
 import pandas as pd
 from pathlib import Path
-from tqdm import tqdm
 
 import torch
-import torchaudio
-from transformers import Wav2Vec2Processor, Wav2Vec2Model, RobertaTokenizer, RobertaModel
 from audio_features import AudioFeatureExtractor
 from text_features import TextFeatureExtractor
 
