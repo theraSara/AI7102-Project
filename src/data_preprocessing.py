@@ -1,18 +1,16 @@
+import re
 import json
 import pandas as pd 
-import numpy as np
+from tqdm import tqdm
 from pathlib import Path
 import matplotlib.pyplot as plt
 from sklearn.model_selection import train_test_split
 
-import torchaudio
-from tqdm import tqdm
-
 CSV_PATH = "/Users/vanilla/.cache/kagglehub/datasets/samuelsamsudinng/iemocap-emotion-speech-database/versions/1/iemocap_full_dataset.csv"
 
-IEMOCAP_PATH = "/Users/vanilla/Documents/courses/AI7102/project/AI7102-Project-1/data/IEMOCAP_full_release" 
+IEMOCAP_PATH = "/Users/vanilla/Documents/courses/AI7102/project/AI7102-Project-1/IEMOCAP_full_release" 
 
-OUTPUT_DIR = Path("data_processed")
+OUTPUT_DIR = Path("data")
 OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 
 def load_filter_data(csv_path):
@@ -81,35 +79,34 @@ def fix_audio_path(df, data_path=IEMOCAP_PATH):
     df['audio_path'] = df['path'].apply(lambda x: str(Path(data_path) / x))
     return df
 
+def find_trans_file(utterance_id, data_path=IEMOCAP_PATH):
+    parts = utterance_id.split('_')
+    # remove last part (_F000 / _M024) to get dialog file
+    dialog_id = '_'.join(parts[:-1])
+    session_num = dialog_id[3:5]  # Ses05 -> 05
+
+    trans_dir = Path(data_path) / f"Session{int(session_num)}" / "dialog" / "transcriptions"
+    trans_file = trans_dir / f"{dialog_id}.txt"
+
+    if trans_file.exists():
+        return trans_file
+    else:
+        return None
+
 def extract_oracle_transcript(utterance_id, data_path=IEMOCAP_PATH):
-    try:
-        # Parse utterance ID
-        # Format: Ses01F_impro01_F000
-        #         ^^^^^  ^^^^^^^ (dialog_id)
-        #            ^^ (session_num)
-
-        session_id = utterance_id[:5] # Ses01
-        session_num = session_id[3:5] # 01
-        dialog_id = '_'.join(utterance_id.split('_')[:2]) # Ses01F_impro01
-
-        trans_file = Path(data_path) / f"Session{session_num}" / "dialog" / "transcriptions" / f"{dialog_id}.txt"
-
-        if not trans_file.exists():
-            return ""
-        
-        with open(trans_file, 'r', encoding='utf-8', errors='ignore') as f:
-            lines = f.readlines()
-
-        for line in lines:
-            if utterance_id in line and ':' in line:
-                parts = line.split(':', 1)
-                if len(parts) == 2:
-                    return parts[1].strip()
-                
+    trans_file = find_trans_file(utterance_id, data_path)
+    if not trans_file:
         return ""
-    except:
-        return ""
-    
+
+    pattern = re.compile(r'^(Ses\d+[FM]_[^ ]+_[FM]\d+)\s+\[\d+\.\d+-\d+\.\d+\]:\s*(.*)$')
+
+    with open(trans_file, 'r', encoding='utf-8', errors='ignore') as f:
+        for line in f:
+            match = pattern.match(line.strip())
+            if match and match.group(1) == utterance_id:
+                return match.group(2).strip()
+    return ""
+
 def add_oracle_transcripts(train_df, val_df, test_df , data_path=IEMOCAP_PATH):
     train_df['utterance_id'] = train_df['audio_path'].apply(extract_utterance_id)
     val_df['utterance_id'] = val_df['audio_path'].apply(extract_utterance_id)
@@ -257,7 +254,6 @@ def main():
     visualize_distribution(train_df, val_df, test_df, OUTPUT_DIR)
 
     print(f"Done! Processed data is in {OUTPUT_DIR}/")
-
 if __name__ == "__main__":
     main()
 
@@ -311,7 +307,7 @@ fru       1321  147   381
 hap       1075  119   442
 neu       1191  133   384
 sad        755   84   245
-Audio paths updated: /Users/vanilla/Documents/courses/AI7102/project/AI7102-Project-1/data/IEMOCAP_full_release/Session4/sentences/wav/Ses04M_script01_1/Ses04M_script01_1_M018.wav
+Audio paths updated: /Users/vanilla/Documents/courses/AI7102/project/AI7102-Project-1/IEMOCAP_full_release/Session4/sentences/wav/Ses04M_script01_1/Ses04M_script01_1_M018.wav
 Exists: Ses04M_script01_1_M018.wav
 Exists: Ses04M_impro02_M027.wav
 Exists: Ses02F_impro03_F030.wav
@@ -325,23 +321,22 @@ Exists: Ses02M_impro06_M007.wav
 Success rate: 100%
 Extracting oracle transcripts for training set...
 Train set...
-Train: 100%|███████████████████████████████████████████████████| 5182/5182 [00:00<00:00, 134210.68it/s]
+Train: 100%|██████████████████████████████████████████| 5182/5182 [00:00<00:00, 23908.74it/s]
 Validation set...
-Val: 100%|███████████████████████████████████████████████████████| 576/576 [00:00<00:00, 131779.80it/s]
+Val: 100%|██████████████████████████████████████████████| 576/576 [00:00<00:00, 26040.91it/s]
 Test set...
-Test: 100%|████████████████████████████████████████████████████| 1622/1622 [00:00<00:00, 133056.15it/s]
+Test: 100%|███████████████████████████████████████████| 1622/1622 [00:00<00:00, 25590.80it/s]
 Oracle transcript extraction results:
-   Train: 0/5182 valid transcripts
-   Val:   0/576 valid transcripts
-   Test:  0/1622 valid transcripts
-Warning: Less than 90% valid transcripts in training set.
-Processed data saved to data_processed
+   Train: 5182/5182 valid transcripts
+   Val:   576/576 valid transcripts
+   Test:  1622/1622 valid transcripts
+Processed data saved to data
 Emotion mapping saved.
-data_processed/emotion2idx.json
+data/emotion2idx.json
 Classes: ['ang', 'fru', 'hap', 'neu', 'sad']
 Saved data summary:
-data_processed/data_summary.json
+data/data_summary.json
 Saved visualization:
-data_processed/class_distribution.png
-Done! Processed data is in data_processed/
+data/class_distribution.png
+Done! Processed data is in data/
 """
