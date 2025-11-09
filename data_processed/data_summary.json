@@ -1,0 +1,44 @@
+{
+  "total_samples": 7380,
+  "train_samples": 5182,
+  "val_samples": 576,
+  "test_samples": 1622,
+  "num_classes": 5,
+  "classes": [
+    "ang",
+    "fru",
+    "hap",
+    "neu",
+    "sad"
+  ],
+  "emotion2idx": {
+    "ang": 0,
+    "fru": 1,
+    "hap": 2,
+    "neu": 3,
+    "sad": 4
+  },
+  "class_distribution": {
+    "train": {
+      "fru": 1321,
+      "neu": 1191,
+      "hap": 1075,
+      "ang": 840,
+      "sad": 755
+    },
+    "val": {
+      "fru": 147,
+      "neu": 133,
+      "hap": 119,
+      "ang": 93,
+      "sad": 84
+    },
+    "test": {
+      "hap": 442,
+      "neu": 384,
+      "fru": 381,
+      "sad": 245,
+      "ang": 170
+    }
+  }
+}
