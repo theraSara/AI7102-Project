@@ -1,5 +1,3 @@
-import os
-import json
 import numpy as np
 import pandas as pd 
 from tqdm import tqdm
@@ -14,7 +12,7 @@ import whisper
 class ASRTranscriber:
     def __init__(self, model_size="base"):
         self.device = "cuda" if torch.cuda.is_available() else "cpu"
-        print(f"Loading Whisper {model_size} model on {self.device}...")
+        print(f"Loading Whisper {model_size} model on {self.device}...") 
         
         self.model = whisper.load_model(model_size, device=self.device)
         print("Model loaded successfully")
@@ -129,9 +127,9 @@ def calculate_metrics(df):
 
 def main():
     # load the splits
-    train_df = pd.read_csv("data/train_split.csv")
-    val_df = pd.read_csv("data/val_split.csv")
-    test_df = pd.read_csv("data/test_split.csv")
+    train_df = pd.read_csv("/Users/vanilla/Documents/courses/AI7102/project/AI7102-Project-1/data/train_split.csv")
+    val_df = pd.read_csv("/Users/vanilla/Documents/courses/AI7102/project/AI7102-Project-1/data/val_split.csv")
+    test_df = pd.read_csv("/Users/vanilla/Documents/courses/AI7102/project/AI7102-Project-1/data/test_split.csv")
 
     print(f"Train: {len(train_df)}, Val: {len(val_df)}, Test: {len(test_df)}")
 
@@ -146,10 +144,19 @@ def main():
     calculate_metrics(train_asr)
 
     # save results
-    output_dir = Path("data")
-    train_asr.to_csv(output_dir / "train_with_asr.csv", index=False)
-    val_asr.to_csv(output_dir / "val_with_asr.csv", index=False)
-    test_asr.to_csv(output_dir / "test_with_asr.csv", index=False)
+    output_dir = Path("/Users/vanilla/Documents/courses/AI7102/project/AI7102-Project-1/data")
+
+    print("Saving final ASR-augmented datasets...")
+    
+    train_df.to_csv("train_with_asr.csv", index=False)
+    print("Saved train_with_asr.csv")
+
+    val_df.to_csv("val_with_asr.csv", index=False)
+    print("Saved val_with_asr.csv")
+
+    test_df.to_csv("test_with_asr.csv", index=False)
+    print("Saved test_with_asr.csv")
+
 
     print(f"Results saved to {output_dir}/")
 
