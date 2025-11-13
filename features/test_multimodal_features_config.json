@@ -1,0 +1,6 @@
+{
+  "audio_model": "facebook/wav2vec2-base",
+  "text_model": "roberta-base",
+  "audio_pooling": "mean",
+  "text_pooling": "cls"
+}
