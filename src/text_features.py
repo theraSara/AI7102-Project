@@ -11,7 +11,7 @@ class TextFeatureExtractor:
         print(f"Loading RoBERTa model on {self.device}...")
 
         self.tokenizer = RobertaTokenizer.from_pretrained(model_name)
-        self.model = RobertaModel.from_pretrained(model_name).to(self.device)
+        self.model = RobertaModel.from_pretrained(model_name, use_safetensors=True).to(self.device)
         self.model.eval()
 
         print("RoBERTa model loaded: ", model_name)

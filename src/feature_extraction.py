@@ -12,8 +12,8 @@ class MultimodalFeatureExtractor:
         self.device = device if device else ("cuda" if torch.cuda.is_available() else "cpu")
         print("Device for multimodal feature extraction: ", self.device)
 
-        self.audio_extractor = AudioFeatureExtractor(model_name=audio_model, device=device)
-        self.text_extractor = TextFeatureExtractor(model_name=text_model, device=device)
+        self.audio_extractor = AudioFeatureExtractor(model_name=audio_model, device=self.device)
+        self.text_extractor = TextFeatureExtractor(model_name=text_model, device=self.device)
 
         self.audio_dim = self.audio_extractor.model.config.hidden_size
         self.text_dim = self.text_extractor.model.config.hidden_size
@@ -138,7 +138,7 @@ def validate_features(train_features, val_features, test_features):
     
 
 def main():
-    DATA_DIR = Path("data")
+    DATA_DIR = Path(r"C:\Users\PC\OneDrive\Documents\uni\AI7102-Project\data_with_asr")
     OUTPUT_DIR = Path("features")
     OUTPUT_DIR.mkdir(exist_ok=True)
 
@@ -192,7 +192,7 @@ def main():
     validate_features(train_features, val_features, test_features)
 
     print("Feature extraction pipeline completed successfully.")
-    print(f"Features saved to:  {OUTPUT_DIR}/")
+    print(f"Features saved to:  {OUTPUT_DIR}\ ")
     
 if __name__ == "__main__":
     main()

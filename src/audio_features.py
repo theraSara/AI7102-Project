@@ -5,21 +5,25 @@ from tqdm import tqdm
 
 import torch
 import torchaudio
-from transformers import Wav2Vec2Processor, Wav2Vec2Model
+from transformers import Wav2Vec2Processor, Wav2Vec2Model  
 
 class AudioFeatureExtractor:
-    def __init__(self, model_name="facebook/wav2vec2-base", device=None):
+    def __init__(self, model_name="facebook/wav2vec2-base-960h", device=None):
         self.device = device if device else ("cuda" if torch.cuda.is_available() else "cpu")
-        print(f"Loading Wav2Vec2 model on {self.device}...")
-        
+        print(f"Loading {model_name} on {self.device}...")
+
+        # Processor works for both base and ctc variants
         self.processor = Wav2Vec2Processor.from_pretrained(model_name)
-        self.model = Wav2Vec2Model.from_pretrained(model_name).to(self.device)
+
+        # base_or_ctc = AutoModel.from_pretrained(model_name, use_safetensors=True).to(self.device)
+        #self.model = getattr(base_or_ctc, "wav2vec2", base_or_ctc)
+        self.model = Wav2Vec2Model.from_pretrained(model_name, use_safetensors=True).to(self.device)
         self.model.eval()
 
-        self.target_sr = 16000 # Wav2Vec2 expects 16kHz audio
+        self.target_sr = 16000
+        self.output_dim = self.model.config.hidden_size  # same as before
 
-        print("Wav2Vec2 model loaded: ", model_name)
-        print("Output feature dimension: ", self.model.config.hidden_size)
+        print("Model loaded (safetensors). Output feature dimension:", self.output_dim)
 
     def load_audio(self, audio_path):
         try:
