@@ -1,0 +1,21 @@
+Transcription Metrics (572 utterances val):
+WER: 17.439%
+CER: 11.287%
+
+Transcription Metrics (5157 utterances train):
+WER: 17.504%
+CER: 11.519%
+
+Transcription Metrics (1612 utterances test):
+WER: 17.269%
+CER: 11.331%
+
+
+Audio training features shape:  (5182, 768)
+Text training features shape:  (5182, 768)
+
+Audio validation features shape:  (576, 768)
+Text validation features shape:  (576, 768)
+
+Audio test features shape:  (1622, 768)
+Text test features shape:  (1622, 768)
