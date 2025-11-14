@@ -7,6 +7,16 @@ import torch
 from audio_features import AudioFeatureExtractor
 from text_features import TextFeatureExtractor
 
+USE_CONF_POOL = True        
+TEXT_POOLING  = 'conf_weighted' if USE_CONF_POOL else 'cls'
+
+if USE_CONF_POOL:
+    from text_features_weighted import ConfWeightedTextFeatureExtractor as TextExtractor
+    OUT_DIR = Path("features_confweighted") 
+else:
+    from text_features import TextFeatureExtractor as TextExtractor
+    OUT_DIR = Path("features")               
+
 class MultimodalFeatureExtractor:
     def __init__(self, audio_model="facebook/wav2vec2-base", text_model="roberta-base", device=None):
         self.device = device if device else ("cuda" if torch.cuda.is_available() else "cpu")
@@ -22,7 +32,7 @@ class MultimodalFeatureExtractor:
         print("Text feature dimension: ", self.text_dim)
         print("Total multimodal feature dimension: ", self.audio_dim + self.text_dim)
 
-    def process_dataset(self, df, audio_pooling='mean', text_pooling='cls', text_column='asr_transcript'):
+    def process_dataset(self, df, audio_pooling='mean', text_pooling=TEXT_POOLING, text_column='asr_transcript'):
         print(f"Processing {len(df)} samples for multimodal feature extraction...")
 
         audio_features, audio_failed = self.audio_extractor.process_dataframe(
@@ -143,7 +153,7 @@ def main():
     OUTPUT_DIR.mkdir(exist_ok=True)
 
     AUDIO_POOLING = 'mean' # i picked this one, but you can change it to 'max' or 'attention'
-    TEXT_POOLING = 'cls' # even here, you can change it to 'mean' if you want
+    # TEXT_POOLING = 'cls' # even here, you can change it to 'mean' if you want
     TEXT_COLUMN = 'asr_transcript'
 
     print("Multimodal Feature Extraction Pipeline")
@@ -152,9 +162,9 @@ def main():
     print(f"Text source: {TEXT_COLUMN}")
 
     print("Loading data splits...")
-    train_df = pd.read_csv(DATA_DIR / "train_with_asr.csv")
-    val_df = pd.read_csv(DATA_DIR / "val_with_asr.csv")
-    test_df = pd.read_csv(DATA_DIR / "test_with_asr.csv")
+    train_df = pd.read_csv(DATA_DIR / "train_with_asr_weighted.csv")
+    val_df = pd.read_csv(DATA_DIR / "val_with_asr_weighted.csv")
+    test_df = pd.read_csv(DATA_DIR / "test_with_asr_weighted.csv")
 
     print("Loaded splits:")
     print(f"Train samples: {len(train_df)}")
@@ -184,9 +194,9 @@ def main():
     )
 
     print("Saving extracted features...")
-    save_features(train_features, OUTPUT_DIR / "train_multimodal_features.npz")
-    save_features(val_features, OUTPUT_DIR / "val_multimodal_features.npz")
-    save_features(test_features, OUTPUT_DIR / "test_multimodal_features.npz")
+    save_features(train_features, OUTPUT_DIR / "train_multimodal_features_w.npz")
+    save_features(val_features, OUTPUT_DIR / "val_multimodal_features_w.npz")
+    save_features(test_features, OUTPUT_DIR / "test_multimodal_features_w.npz")
 
     print("Loading features back for validation...")
     validate_features(train_features, val_features, test_features)
