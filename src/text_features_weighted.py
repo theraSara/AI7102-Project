@@ -13,7 +13,7 @@ class ConfWeightedTextFeatureExtractor:
         self.device = device if device else ("cuda" if torch.cuda.is_available() else "cpu")
         print(f"[ConfWeighted] Loading RoBERTa (fast) on {self.device}...")
 
-        self.tokenizer = RobertaTokenizerFast.from_pretrained(model_name)
+        self.tokenizer = RobertaTokenizerFast.from_pretrained(model_name, add_prefix_space=True)
         # safetensors loads by default if available in recent transformers; no need to force
         self.model = RobertaModel.from_pretrained(model_name).to(self.device)
         self.model.eval()
@@ -79,9 +79,17 @@ class ConfWeightedTextFeatureExtractor:
                 w[i] = float(probs[wid])
 
         w = w * attn
-        denom = w.sum().clamp(min=1e-6)
-        feat = (hidden * w.unsqueeze(-1)).sum(dim=0) / denom  # (hidden,)
-        return feat
+        denom = w.sum()
+        # If a sequence is long and many high‑probability words are truncated, 
+        # it’s possible all token weights become 0 and the denominator collapses. 
+        # Add a safe fallback to unweighted mean when that happens
+        if denom.item() < 1e-6:
+            # Fallback: unweighted mean over non-padding tokens
+            feat = (hidden * attn.unsqueeze(-1)).sum(dim=0) / attn.sum().clamp(min=1e-6)
+            return feat
+        else:
+            feat = (hidden * w.unsqueeze(-1)).sum(dim=0) / denom
+            return feat
 
     def extract_features(self, text, pooling='cls', word_conf_list=None, utter_conf=None):
         """

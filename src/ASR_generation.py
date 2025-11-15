@@ -1,9 +1,10 @@
+import re
 import json
+import string
 import numpy as np
 import pandas as pd 
 from tqdm import tqdm
 from pathlib import Path
-import matplotlib.pyplot as plt
 from jiwer import wer, cer 
 
 import torch
@@ -120,12 +121,6 @@ class ASRTranscriber:
         df_result['transcription_success'] = [r['success'] for r in results]
 
         return df_result
-
-import re, string
-import json
-import pandas as pd
-import numpy as np
-from jiwer import wer, cer
 
 # Remove punctuation but keep apostrophes if you want (common for English)
 _PUNCT_TO_REMOVE = ''.join(ch for ch in string.punctuation if ch not in "'")

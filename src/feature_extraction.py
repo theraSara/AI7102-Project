@@ -6,16 +6,14 @@ from pathlib import Path
 import torch
 from audio_features import AudioFeatureExtractor
 from text_features import TextFeatureExtractor
-
+# change the TextExtractor to TextFeatureExtractor if you want to extract CLS from the texts
 USE_CONF_POOL = True        
 TEXT_POOLING  = 'conf_weighted' if USE_CONF_POOL else 'cls'
 
 if USE_CONF_POOL:
     from text_features_weighted import ConfWeightedTextFeatureExtractor as TextExtractor
     OUT_DIR = Path("features_confweighted") 
-else:
-    from text_features import TextFeatureExtractor as TextExtractor
-    OUT_DIR = Path("features")               
+       
 
 class MultimodalFeatureExtractor:
     def __init__(self, audio_model="facebook/wav2vec2-base", text_model="roberta-base", device=None):
@@ -23,7 +21,7 @@ class MultimodalFeatureExtractor:
         print("Device for multimodal feature extraction: ", self.device)
 
         self.audio_extractor = AudioFeatureExtractor(model_name=audio_model, device=self.device)
-        self.text_extractor = TextFeatureExtractor(model_name=text_model, device=self.device)
+        self.text_extractor = TextExtractor(model_name=text_model, device=self.device)
 
         self.audio_dim = self.audio_extractor.model.config.hidden_size
         self.text_dim = self.text_extractor.model.config.hidden_size
@@ -162,9 +160,9 @@ def main():
     print(f"Text source: {TEXT_COLUMN}")
 
     print("Loading data splits...")
-    train_df = pd.read_csv(DATA_DIR / "train_with_asr_weighted.csv")
-    val_df = pd.read_csv(DATA_DIR / "val_with_asr_weighted.csv")
-    test_df = pd.read_csv(DATA_DIR / "test_with_asr_weighted.csv")
+    train_df = pd.read_csv(DATA_DIR / "train_with_asr.csv")
+    val_df = pd.read_csv(DATA_DIR / "val_with_asr.csv")
+    test_df = pd.read_csv(DATA_DIR / "test_with_asr.csv")
 
     print("Loaded splits:")
     print(f"Train samples: {len(train_df)}")
