@@ -1,110 +1,98 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from torch.utils.data import Dataset, DataLoader
-import numpy as np
-import pandas as pd
-from pathlib import Path
-from tqdm import tqdm
-import json
-import matplotlib.pyplot as plt
-import seaborn as sns
-from sklearn.metrics import accuracy_score, f1_score, confusion_matrix, classification_report
 
-import warnings
-warnings.filterwarnings('ignore')
+class ConfidenceGateMLP(nn.Module):
+    """
+    Gate MLP: [ã ; t̃ ; scaled_logit(c) ; (optional extras)] → [g_a, g_t]
+    - Supports an extra scalar (e.g., cosine agreement) without changing the interface.
+    """
+    def __init__(self, hidden_dim=256, gate_hidden=128):
+        super().__init__()
+        input_size = hidden_dim * 2 + 2
+
+        self.gate_network = nn.Sequential(
+            nn.Linear(input_size, gate_hidden),
+            nn.GELU(),           # (GELU tends to work better than ReLU here)
+            nn.Dropout(0.30),
+            nn.Linear(gate_hidden, gate_hidden // 2),
+            nn.GELU(),
+            nn.Dropout(0.30),
+            nn.Linear(gate_hidden // 2, 2)  # logits for [g_a, g_t]
+        )
+        for m in self.gate_network:
+            if isinstance(m, nn.Linear):
+                nn.init.xavier_uniform_(m.weight); nn.init.zeros_(m.bias)
+
+    def forward(self, audio_proj, text_proj, scaled_logit_conf, cos_agree):
+                # ensure shapes (B,1)
+        if scaled_logit_conf.dim() == 1: scaled_logit_conf = scaled_logit_conf.unsqueeze(1)
+        if cos_agree.dim() == 1:        cos_agree        = cos_agree.unsqueeze(1)
+
+        gate_input = torch.cat([audio_proj, text_proj, scaled_logit_conf, cos_agree], dim=1)  # (B,514)
+        gate_logits = self.gate_network(gate_input)                  # (B,2)
+        gates = F.softmax(gate_logits, dim=-1)                       # (B,2)
+        return gates, gate_logits
 
 class ConfidenceGate(nn.Module):
     """
-    Simple gating: use confidence score directly as gate value.
-    Gate = sigmoid(confidence)
-    Output = gate * text + (1 - gate) * audio
+    Confidence‑gated fusion:
+      inputs:  ã, t̃, logit(c)
+      extras:  cosine agreement cos(ã, t̃) (optional)
+      output:  h = g_a·ã + g_t·t̃
+      aux:     λ * MSE(g_t, c)
     """
-
-    def __init__(self):
+    def __init__(self, hidden_dim=256, gate_hidden=128, use_aux_loss=True, lambda_gate=0.1,):
         super().__init__()
+        # Learnable temperature for scaling logit(conf): logit(conf) / τ  (we parameterize as mul)
+        self.conf_temp = nn.Parameter(torch.tensor(0.5))  # scale on logit(c)
+        self.use_aux_loss = use_aux_loss
+        self.lambda_gate = lambda_gate
 
-    def forward(self, audio_features, text_features, confidence):
-        gate = torch.sigmoid(confidence).unsqueeze(1) # [Batch, 1]
-
-        # weighted combination
-        # high confidence -> rely more on text
-        # low confidence -> rely more on audio
-
-        fused_features = gate * text_features + (1-gate) * audio_features
-
-        return fused_features, gate.squeeze(1)
-    
-
-class LearnedGate(nn.Module):
-    """
-    Learned gating: confidence -> MLP -> gate
-    Gate = sigmoid(MLP(confidence))
-    Output = gate * text + (1 - gate) * audio
-    """
-
-    def __init__(self, hidden_dim=64):
-        super().__init__()
-        self.gate_network = nn.Sequential(
-            nn.Linear(1, hidden_dim),
-            nn.ReLU(),
-            nn.Dropout(0.3),
-            nn.Linear(hidden_dim, hidden_dim // 2),
-            nn.ReLU(),
-            nn.Dropout(0.3),
-            nn.Linear(hidden_dim // 2, 1),
-            nn.Sigmoid()
+        self.gate_mlp = ConfidenceGateMLP(
+            hidden_dim=hidden_dim,
+            gate_hidden=gate_hidden,
         )
 
-    def forward(self, audio_features, text_features, confidence):
-        confidence_input = confidence.unsqueeze(1)  # [Batch, 1]
-        gate = self.gate_network(confidence_input) # [Batch, 1]
+        # cache for analysis
+        self.last_gates = None
 
-        # weighted combination
-        fused_features = gate * text_features + (1-gate) * audio_features
+    def forward(self, audio_proj, text_proj, logit_conf, confidence_original=None):
+        """
+        audio_proj: (B,256)  ã
+        text_proj:  (B,256)  t̃
+        logit_conf: (B,) or (B,1)  logit(c)
+        confidence_original: (B,) or (B,1) in [0,1]  (for aux loss)
+        """
+        # Scale logit(conf) by learnable temperature
+        scaled_logit_conf = self.conf_temp * logit_conf  # supports (B,) or (B,1)
 
-        return fused_features, gate.squeeze(1)
-    
+        # cosine agreement scalar
+        cos_agree = F.cosine_similarity(audio_proj, text_proj, dim=-1, eps=1e-6)  # (B,)
 
-class AttentionGate(nn.Module):
-    """
-    Attention-based gating: confidence, text, audio -> Attention -> gate
-    Gate = sigmoid(Attention(confidence, text, audio))
-    Output = gate * text + (1 - gate) * audio
-    """
+        # get gates using the augmented input
+        gates, _ = self.gate_mlp(audio_proj, text_proj, scaled_logit_conf, cos_agree)
 
-    def __init__(self, audio_dim, text_dim, hidden_dim=256):
-        super().__init__()
+        g_a = gates[:, 0:1]  # (B,1)
+        g_t = gates[:, 1:2]  # (B,1)
 
-        self.audio_projection = nn.Linear(audio_dim, hidden_dim)
-        self.text_projection = nn.Linear(text_dim, hidden_dim)
+        # Fuse
+        fused = g_a * audio_proj + g_t * text_proj  # (B,256)
 
-        self.attention = nn.Sequential(
-            nn.Linear(hidden_dim * 2 + 1, hidden_dim), # +1 for confidence
-            nn.Tanh(),
-            nn.Dropout(0.3),
-            nn.Linear(hidden_dim, 2), # 2 attention weight outputs: audio, text 
-            nn.Softmax(dim=1)
-        )
+        # Aux loss (optional): encourage g_t ≈ c
+        aux_loss = torch.tensor(0.0, device=fused.device)
+        if self.use_aux_loss and (confidence_original is not None):
+            conf = confidence_original
+            if conf.dim() > 1:
+                conf = conf.squeeze(-1)
+            aux_loss = self.lambda_gate * F.mse_loss(g_t.squeeze(-1), conf)
 
-    def forward(self, audio_features, text_features, confidence):
-        audio_proj = self.audio_projection(audio_features) # [Batch, hidden_dim]
-        text_proj = self.text_projection(text_features)    # [Batch, hidden_dim]
+        self.last_gates = gates.detach()  # for analysis
 
-        # concatenate features and confidence
-        confidence_expanded = confidence.unsqueeze(1)  # [Batch, 1]
-        combined = torch.cat([audio_proj, text_proj, confidence_expanded], dim=1)
-
-        # compute attention weights
-        attention_weights = self.attention(combined) # [Batch, 2]
-
-        # apply attention
-        audio_weight = attention_weights[:, 0].unsqueeze(1) # [Batch, 1]
-        text_weight = attention_weights[:, 1].unsqueeze(1) # [Batch, 1]
-
-        fused_features = audio_weight * audio_proj + text_weight * text_proj
-        gate = text_weight.squeeze(1) 
-
-        return fused_features, gate
-
-
+        return {
+            'fused': fused,
+            'gates': gates,
+            'gate_audio': g_a.squeeze(1),
+            'gate_text': g_t.squeeze(1),
+            'aux_loss': aux_loss
+        }
