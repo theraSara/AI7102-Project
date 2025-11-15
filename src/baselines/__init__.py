@@ -1,0 +1,4 @@
+from src.models.classifier import Classifier
+from src.models.shared_projection import Projections
+from src.gated_fusion_module.multimodal_dataset import MultimodalDataset
+from src.gated_fusion_module.gated_fusion_trainer import GatedFusionTrainer
