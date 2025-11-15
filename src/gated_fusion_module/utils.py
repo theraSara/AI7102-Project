@@ -1,11 +1,101 @@
 import numpy as np
+import pandas as pd
 import matplotlib.pyplot as plt
-from sklearn.metrics import accuracy_score, f1_score, confusion_matrix
+from sklearn.metrics import accuracy_score, f1_score
 
 import warnings
 warnings.filterwarnings('ignore')
 
 
+def load_data(features_path, csv_path):
+    data = np.load(features_path)
+    audio_features = data['audio_features']
+    text_features = data['text_features']
+
+    df = pd.read_csv(csv_path)
+    labels = df['emotion'].values
+
+    # get confidence scores
+    if 'utterance_confidence' in df.columns:
+        confidences = df['utterance_confidence'].fillna(0.5).values
+    else:
+        print("No confidence scores found, using default 0.5")
+        confidences = np.ones(len(df)) * 0.5
+    
+    return audio_features, text_features, labels, confidences
+
+
+def bin_stats(values, preds, labels, nbins=4):
+    """
+    Slice metrics by value bins (e.g., ASR confidence quartiles).
+    Args:
+        values: 1D array-like (N,) with values to bin on (e.g., confidences)
+        preds:  1D array-like (N,) predicted class ids
+        labels: 1D array-like (N,) true class ids
+        nbins:  number of bins (default 4 for quartiles)
+
+    Returns: list of dicts [{bin_lo, bin_hi, n, acc, f1_macro}]
+    """
+    v = np.asarray(values).reshape(-1)
+    p = np.asarray(preds).reshape(-1)
+    y = np.asarray(labels).reshape(-1)
+
+    # quantile edges (inclusive upper bound on last bin)
+    edges = np.quantile(v, np.linspace(0, 1, nbins + 1))
+    edges[-1] = np.nextafter(edges[-1], np.inf)
+
+    rows = []
+    for i in range(nbins):
+        lo, hi = edges[i], edges[i+1]
+        mask = (v >= lo) & (v < hi)
+        if mask.sum() == 0:
+            rows.append(dict(bin_lo=float(lo), bin_hi=float(hi), n=0, acc=np.nan, f1_macro=np.nan))
+            continue
+        acc = accuracy_score(y[mask], p[mask])
+        f1m = f1_score(y[mask], p[mask], average='macro')
+        rows.append(dict(bin_lo=float(lo), bin_hi=float(hi), n=int(mask.sum()),
+                         acc=float(acc), f1_macro=float(f1m)))
+    return rows
+
+
+def plot_gate_analysis(gate_audio, gate_text, confidences, save_path):
+    fig, axes = plt.subplots(1, 3, figsize=(18, 5))
+    
+    # 1. Gate distribution
+    axes[0].hist(gate_text, bins=50, color='steelblue', alpha=0.7, label='g_text')
+    axes[0].hist(gate_audio, bins=50, color='coral', alpha=0.7, label='g_audio')
+    axes[0].set_xlabel('Gate Value')
+    axes[0].set_ylabel('Frequency')
+    axes[0].set_title('Gate Distribution')
+    axes[0].legend()
+    axes[0].grid(alpha=0.3)
+    
+    # 2. Gate_text vs Confidence
+    axes[1].scatter(confidences, gate_text, alpha=0.3, s=10)
+    axes[1].set_xlabel('ASR Confidence')
+    axes[1].set_ylabel('Gate Text (g_t)')
+    axes[1].set_title('Gate vs Confidence')
+    
+    # Add trend line
+    z = np.polyfit(confidences, gate_text, 1)
+    p = np.poly1d(z)
+    axes[1].plot(confidences, p(confidences), "r--", alpha=0.8)
+    axes[1].grid(alpha=0.3)
+    
+    # 3. Correlation
+    corr = np.corrcoef(confidences, gate_text)[0, 1]
+    axes[2].text(0.5, 0.5, f'Correlation:\n{corr:.3f}',
+                 ha='center', va='center', fontsize=20, fontweight='bold',
+                 transform=axes[2].transAxes)
+    axes[2].set_title('Gate-Confidence Correlation')
+    axes[2].axis('off')
+    
+    plt.tight_layout()
+    plt.savefig(save_path, dpi=150)
+    print(f"Saved gate analysis to {save_path}")
+    plt.close()
+
+"""
 def plot_training_history(trainer, save_path='training_curves.png'):
     fig, axes = plt.subplots(1, 3, figsize=(18, 5))
 
@@ -216,4 +306,4 @@ def analyze_gate(gates, confidences, labels, predictions, class_names, save_path
     for r in results:
         print(f"{r['range']:<12} {r['count']:>8} {r['accuracy']*100:>9.2f}% {r['f1']*100:>11.2f}% {r['mean_gate']:>12.3f}")
 
-
+"""
