@@ -1,0 +1,26 @@
+{
+  "config": {
+    "input_dim": 768,
+    "hidden_dim": 256,
+    "gate_hidden": 128,
+    "dropout": 0.2,
+    "use_aux_loss": true,
+    "lambda_gate": 0.1,
+    "learning_rate": 0.0001,
+    "weight_decay": 1e-05,
+    "batch_size": 32,
+    "num_epochs": 50,
+    "patience": 10
+  },
+  "test_accuracy": 0.6066584463625154,
+  "test_f1_macro": 0.6058083409515491,
+  "test_f1_weighted": 0.608133964253588,
+  "best_val_f1": 0.6497064361155594,
+  "emotion2idx": {
+    "ang": 0,
+    "fru": 1,
+    "hap": 2,
+    "neu": 3,
+    "sad": 4
+  }
+}
