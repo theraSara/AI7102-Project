@@ -1,6 +1,5 @@
 import torch
 import torch.nn as nn
-import numpy as np
 
 class Projections(nn.Module):
     """
@@ -26,13 +25,11 @@ class Projections(nn.Module):
             )
         else:
             self.proj_a = nn.Sequential(
-                nn.LayerNorm(audio_dim),
                 nn.Linear(audio_dim, out_dim),
                 nn.GELU(approximate="tanh")
             )
             
             self.proj_t = nn.Sequential(
-                nn.LayerNorm(text_dim),
                 nn.Linear(text_dim, out_dim),
                 nn.GELU(approximate="tanh")
             )
