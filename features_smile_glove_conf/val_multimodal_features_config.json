@@ -1,0 +1,7 @@
+{
+  "audio_model": "openSMILE-eGeMAPSv02",
+  "text_model": "glove@glove.6B.300d.txt",
+  "audio_pooling": "functionals",
+  "text_pooling": "conf_weighted",
+  "notes": "eGeMAPS functionals are utterance-level fixed vectors; GloVe uses mean/conf_weighted by ASR word confidences."
+}
