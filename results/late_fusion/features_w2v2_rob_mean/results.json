@@ -1,0 +1,28 @@
+{
+  "config": {
+    "input_dim": 768,
+    "hidden_dim": 256,
+    "dropout": 0.2,
+    "learning_rate": 0.0001,
+    "weight_decay": 1e-05,
+    "batch_size": 32,
+    "num_epochs": 50,
+    "patience": 10,
+    "use_conf_as_alpha": false,
+    "learnable_alpha": true,
+    "alpha_fixed": null
+  },
+  "test_accuracy": 0.5838471023427867,
+  "test_f1_macro": 0.5830879415771889,
+  "test_f1_weighted": 0.585312101623056,
+  "best_val_f1": 0.6314662471973722,
+  "emotion2idx": {
+    "ang": 0,
+    "fru": 1,
+    "hap": 2,
+    "neu": 3,
+    "sad": 4
+  },
+  "mean_alpha_used": 0.5187710523605347,
+  "mean_gate_text": 0.48122894763946533
+}

@@ -29,8 +29,8 @@ def map_labels_to_ids(labels, emotion2idx):
 def main():
     # ---- paths & config ----
     DATA_DIR = Path("data_with_asr")
-    FEATURES_DIR = Path("features/conf_weighted")
-    OUTPUT_DIR = Path("results/late_fusion")  
+    FEATURES_DIR = Path("features_w2v2_rob_mean")   #features/conf_weighted
+    OUTPUT_DIR = Path("results/late_fusion/features_w2v2_rob_mean")  
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 
     CONFIG = {
@@ -58,17 +58,17 @@ def main():
     # ---- load data (features + csv) ----
     print("Loading training data...")
     train_audio, train_text, train_labels, train_confidences = load_data(
-        FEATURES_DIR / "train_multimodal_features_w.npz",
+        FEATURES_DIR / "train_multimodal_features.npz", #train_multimodal_features_w
         DATA_DIR / "train_with_asr.csv"
     )
     print("Loading validation data...")
     val_audio, val_text, val_labels, val_confidences = load_data(
-        FEATURES_DIR / "val_multimodal_features_w.npz",
+        FEATURES_DIR / "val_multimodal_features.npz",
         DATA_DIR / "val_with_asr.csv"
     )
     print("Loading test data...")
     test_audio, test_text, test_labels, test_confidences = load_data(
-        FEATURES_DIR / "test_multimodal_features_w.npz",
+        FEATURES_DIR / "test_multimodal_features.npz",
         DATA_DIR / "test_with_asr.csv"
     )
 

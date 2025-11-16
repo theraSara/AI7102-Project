@@ -234,6 +234,7 @@ class LateFusionTrainer:
         """
         output_dir.mkdir(parents=True, exist_ok=True) 
         
+        print('Len: ', len(self.alpha_means), len(self.alpha_stds))
         # 1) loss + alpha curves
         plot_training_progress(
             self.train_losses,
