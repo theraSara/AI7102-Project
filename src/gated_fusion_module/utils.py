@@ -1,11 +1,21 @@
 import numpy as np
 import pandas as pd
+import torch
 import matplotlib.pyplot as plt
 from sklearn.metrics import accuracy_score, f1_score
 
 import warnings
 warnings.filterwarnings('ignore')
 
+def safe_mean_conf(val_loader):
+    conf = getattr(val_loader.dataset, "confidences", None)
+    if conf is None:
+        return 0.0
+    # torch.Tensor
+    if isinstance(conf, torch.Tensor):
+        return float(conf.detach().float().mean().item())
+    # list / numpy array / anything array-like
+    return float(np.asarray(conf, dtype=np.float32).mean())
 
 def load_data(features_path, csv_path):
     data = np.load(features_path)

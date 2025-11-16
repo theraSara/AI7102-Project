@@ -6,7 +6,7 @@ from sklearn.metrics import classification_report, confusion_matrix
 import torch
 from torch.utils.data import DataLoader
 
-from .utils import plot_alpha_analysis, load_data, bin_stats
+from .utils import load_data, bin_stats
 from .multimodal_dataset import MultimodalDataset
 from .late_fusion import LateFusionModel       
 from .late_fusion_trainer import LateFusionTrainer  
@@ -40,7 +40,7 @@ def main():
         'learning_rate': 1e-4,
         'weight_decay': 1e-5,
         'batch_size': 32,
-        'num_epochs': 10,
+        'num_epochs': 50,
         'patience': 10,
         'use_conf_as_alpha': False,   # use per-sample confidence as α
         'learnable_alpha': True,     # if no confidence, learn a global α
@@ -195,8 +195,6 @@ def main():
     print(f"\n{classification_report(test_results['labels'], test_results['predictions'], target_names=class_names, digits=4)}")
     print(f"\n{confusion_matrix(test_results['labels'], test_results['predictions'])}")
    
-    alpha_used = test_results['alpha_used'].tolist()
-    gate_text = (1.0 - test_results['alpha_used']).tolist()
     # save summary & model
     results_summary = {
         'config': CONFIG,
@@ -205,8 +203,8 @@ def main():
         'test_f1_weighted': float(test_results['f1_weighted']),
         'best_val_f1': float(trainer.best_val_f1),
         'emotion2idx': emotion2idx, 
-        'mean_alpha_used': np.average(alpha_used),  
-        'mean_gate_text': np.average(gate_text)     
+        'mean_alpha_used': np.average(alpha_used.tolist()),  
+        'mean_gate_text': np.average(gate_text.tolist())     
     }
     with open(OUTPUT_DIR / 'results.json', 'w') as f:
         json.dump(results_summary, f, indent=2)
@@ -216,14 +214,6 @@ def main():
         'config': CONFIG,
         'emotion2idx': emotion2idx
     }, OUTPUT_DIR / 'best_model.pt')
-
-    # plot: use alpha (audio weight) and 1-alpha (text weight) vs confidence
-    plot_alpha_analysis(
-        gate_audio=alpha_used,             # α
-        gate_text=gate_text,               # 1 - α
-        confidences=test_confidences,
-        save_path=OUTPUT_DIR / 'gate_analysis.png'
-    )
 
     print(f"All results saved to {OUTPUT_DIR}")
 

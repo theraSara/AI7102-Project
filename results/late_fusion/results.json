@@ -6,16 +6,16 @@
     "learning_rate": 0.0001,
     "weight_decay": 1e-05,
     "batch_size": 32,
-    "num_epochs": 10,
+    "num_epochs": 50,
     "patience": 10,
     "use_conf_as_alpha": false,
     "learnable_alpha": true,
     "alpha_fixed": null
   },
-  "test_accuracy": 0.5758323057953144,
-  "test_f1_macro": 0.5820549576286959,
-  "test_f1_weighted": 0.5753702103713159,
-  "best_val_f1": 0.5801157287950532,
+  "test_accuracy": 0.5912453760789149,
+  "test_f1_macro": 0.5951409435759191,
+  "test_f1_weighted": 0.5936747911179523,
+  "best_val_f1": 0.6218113431059383,
   "emotion2idx": {
     "ang": 0,
     "fru": 1,
@@ -23,6 +23,6 @@
     "neu": 3,
     "sad": 4
   },
-  "mean_alpha_used": 0.5134390592575073,
-  "mean_gate_text": 0.4865609407424927
+  "mean_alpha_used": 0.5119331479072571,
+  "mean_gate_text": 0.4880668520927429
 }

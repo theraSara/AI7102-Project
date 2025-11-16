@@ -56,58 +56,6 @@ def bin_stats(values, preds, labels, nbins=4):
                          acc=float(acc), f1_macro=float(f1m)))
     return rows
 
-def plot_alpha_analysis(gate_audio, gate_text, confidences, save_path):
-    """
-    Visualize fusion gates vs ASR confidence.
-    Works with LateFusionModel outputs:
-      gate_audio = alpha_used  (audio weight)
-      gate_text  = 1 - alpha_used (text weight)
-    """
-    gate_audio = np.asarray(gate_audio).flatten()
-    gate_text = np.asarray(gate_text).flatten()
-    confidences = np.asarray(confidences).flatten()
-
-    fig, axes = plt.subplots(1, 3, figsize=(18, 5))
-
-    # 1️⃣ Gate distributions
-    axes[0].hist(gate_text, bins=50, color='steelblue', alpha=0.7, label='Text (1−α)')
-    axes[0].hist(gate_audio, bins=50, color='coral', alpha=0.7, label='Audio (α)')
-    axes[0].set_xlabel('Gate Value')
-    axes[0].set_ylabel('Frequency')
-    axes[0].set_title('Gate Distribution')
-    axes[0].legend()
-    axes[0].grid(alpha=0.3)
-
-    # 2️⃣ Gate-text vs ASR confidence
-    axes[1].scatter(confidences, gate_text, alpha=0.4, s=10)
-    axes[1].set_xlabel('ASR Confidence')
-    axes[1].set_ylabel('Text Gate (1−α)')
-    axes[1].set_title('Text Gate vs ASR Confidence')
-    axes[1].grid(alpha=0.3)
-
-    # Add linear trend
-    if len(confidences) > 1:
-        z = np.polyfit(confidences, gate_text, 1)
-        p = np.poly1d(z)
-        order = np.argsort(confidences)
-        axes[1].plot(confidences[order], p(confidences[order]), "r--", alpha=0.8)
-
-    # 3️⃣ Correlation summary
-    corr = np.corrcoef(confidences, gate_text)[0, 1]
-    axes[2].text(0.5, 0.6, f'Correlation:\n{corr:.3f}',
-                 ha='center', va='center', fontsize=22, fontweight='bold', transform=axes[2].transAxes)
-    axes[2].text(0.5, 0.3,
-                 "Positive correlation → higher ASR confidence → higher text reliance\n"
-                 "Negative correlation → higher confidence → lower text reliance",
-                 ha='center', va='center', fontsize=10, transform=axes[2].transAxes)
-    axes[2].set_axis_off()
-    axes[2].set_title('Gate-Confidence Correlation', pad=10)
-
-    plt.tight_layout()
-    plt.savefig(save_path, dpi=200)
-    plt.close(fig)
-    print(f"Saved gate analysis to {save_path}")
-
 def plot_training_progress(train_losses, val_losses, alpha_means, alpha_stds, output_dir):
     """
     Plots training progress:
@@ -160,3 +108,68 @@ def plot_training_progress(train_losses, val_losses, alpha_means, alpha_stds, ou
     plt.close()
 
     print(f"Saved training curves to {output_dir}/loss_curve.png and alpha_curve.png")
+
+def plot_alpha_analysis(alpha_means, conf_means, corrs, mean_abs_diffs, output_dir):
+    """
+    Creates three figures:
+      1) Difference (mean_confidence - mean_alpha) over epochs
+      2) Correlation and mean |confidence - (1 - alpha)| over epochs (two y-axes)
+      3) Absolute difference between mean(confidence) and mean(alpha) per epoch
+    Saves:
+      - alpha_conf_diff_over_epochs.png
+      - corr_and_mad_over_epochs.png
+      - abs_diff_mean_conf_alpha.png
+    """
+    output_dir.mkdir(parents=True, exist_ok=True)
+    epochs = np.arange(1, len(alpha_means) + 1)
+    alpha_means = np.array(alpha_means)
+    conf_means = np.array(conf_means)
+
+    # # --- Figure 1: (confidence - alpha) over epochs ---
+    # plt.figure(figsize=(7, 5))
+    # diff = conf_means - alpha_means
+    # plt.plot(epochs, diff, linewidth=2, label='Confidence - Alpha', color='tab:red')
+    # plt.axhline(0, linestyle='--', linewidth=1, color='gray')
+    # plt.xlabel("Epoch")
+    # plt.ylabel("Difference (Conf - Alpha)")
+    # plt.title("Difference Between Mean Confidence and Mean Alpha Over Epochs")
+    # plt.grid(alpha=0.3)
+    # plt.legend()
+    # plt.tight_layout()
+    # plt.savefig(output_dir / "alpha_conf_diff_over_epochs.png", dpi=300)
+    # plt.close()
+
+    # # --- Figure 2: correlation and mean abs diff on two y-axes ---
+    # fig, ax1 = plt.subplots(figsize=(7, 5))
+    # ax2 = ax1.twinx()
+
+    # ln1 = ax1.plot(epochs, corrs, linewidth=2, label='Corr(conf, 1-α)', color='tab:blue')
+    # ln2 = ax2.plot(epochs, mean_abs_diffs, linewidth=2, linestyle='--', label='Mean |conf - (1-α)|', color='tab:orange')
+
+    # ax1.set_xlabel("Epoch")
+    # ax1.set_ylabel("Correlation (conf, 1-α)")
+    # ax2.set_ylabel("Mean |conf - (1-α)|")
+    # ax1.set_title("Per-Epoch Correlation & Mean Abs Difference")
+
+    # ax1.grid(alpha=0.3)
+    # lines = ln1 + ln2
+    # labels = [l.get_label() for l in lines]
+    # ax1.legend(lines, labels, loc='best')
+
+    # plt.tight_layout()
+    # plt.savefig(output_dir / "corr_and_mad_over_epochs.png", dpi=300)
+    # plt.close()
+
+    # --- Figure 3: absolute difference between mean(conf) and mean(alpha) per epoch ---
+    plt.figure(figsize=(7, 5))
+    abs_diff_means = np.abs(conf_means - alpha_means)
+    plt.plot(epochs, abs_diff_means, linewidth=2, color='tab:green')
+    plt.xlabel("Epoch")
+    plt.ylabel("|Mean(Conf) - Mean(Alpha)|")
+    plt.title("Absolute Difference Between Mean Confidence and Mean Alpha per Epoch")
+    plt.grid(alpha=0.3)
+    plt.tight_layout()
+    plt.savefig(output_dir / "abs_diff_mean_conf_alpha.png", dpi=300)
+    plt.close()
+
+    print(f"Saved per-epoch alpha analysis plots to {output_dir}")
