@@ -78,6 +78,9 @@ class GatedFusionTrainer:
         for batch in tqdm(train_loader, desc="Training"):
             audio = batch['audio'].to(self.device, non_blocking=True)
             text = batch['text'].to(self.device, non_blocking=True)
+            text_conf = batch.get('text_conf', None)
+            if text_conf is not None:
+                text_conf = text_conf.to(self.device, non_blocking=True)
             labels = batch['label'].to(self.device, non_blocking=True)
             confidence = batch['confidence'].to(self.device, non_blocking=True)
 
@@ -93,7 +96,7 @@ class GatedFusionTrainer:
         
             # Forward (AMP)
             with torch.cuda.amp.autocast(enabled=self.use_amp):
-                outputs = self.model(audio, text, confidence)
+                outputs = self.model(audio, text, confidence, text_conf=text_conf) 
                 ce_loss = self.criterion(outputs['logits'], labels)
                 aux_loss = outputs['aux_loss']
                 loss = ce_loss + aux_loss
@@ -111,14 +114,6 @@ class GatedFusionTrainer:
             total_loss += float(loss)
             total_ce_loss   += float(ce_loss)
             total_aux_loss  += float(aux_loss)
-
-            # loss.backward()
-            # torch.nn.utils.clip_grad_norm_(self.model.parameters(), max_norm=1.0)
-            # self.optimizer.step()
-
-            # total_loss += loss.item()
-            # total_ce_loss += ce_loss.item()
-            # total_aux_loss += aux_loss.item()
 
         avg_loss = total_loss / max(1, len(train_loader))
         self.train_losses.append(avg_loss)
@@ -142,12 +137,15 @@ class GatedFusionTrainer:
         for batch in tqdm(val_loader, desc="Evaluating"):
             audio = batch['audio'].to(self.device, non_blocking=True)
             text = batch['text'].to(self.device, non_blocking=True)
+            text_conf = batch.get('text_conf', None)
+            if text_conf is not None:
+                text_conf = text_conf.to(self.device, non_blocking=True)
             labels = batch['label'].to(self.device, non_blocking=True)
             confidence = batch['confidence'].to(self.device, non_blocking=True)
 
             # forward pass
             with torch.cuda.amp.autocast(enabled=self.use_amp):
-                outputs = self.model(audio, text, confidence)
+                outputs = self.model(audio, text, confidence, text_conf=text_conf) 
                 loss = self.criterion(outputs['logits'], labels) + outputs['aux_loss']
 
             total_loss += loss.item()

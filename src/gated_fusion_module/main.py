@@ -1,5 +1,6 @@
 import json
 import numpy as np
+import pandas as pd
 from pathlib import Path
 from sklearn.metrics import classification_report, confusion_matrix
 
@@ -10,13 +11,16 @@ from .utils import plot_gate_analysis, load_data, bin_stats
 from .gated_fusion import GatedFusionModel
 from .gated_fusion_trainer import GatedFusionTrainer
 from .multimodal_dataset import  MultimodalDataset
+from .multimodal_dataset_dualtext import MultimodalDatasetDualText
 
 import warnings
 warnings.filterwarnings('ignore')
 
-# helper function
+# "mean"  -> RoBERTa mean features; pass confidence into the gate (primary)
+# "confw" -> RoBERTa conf-weighted features; do NOT pass confidence into the gate (ablation)
+TEXT_FEATURES = "mean"   # "mean" | "confw" | "dual"
+
 def map_labels_to_ids(labels, emotion2idx):
-    import pandas as pd
     ser = pd.Series(labels)                
     mapped = ser.map(emotion2idx)       
     if mapped.isna().any():
@@ -24,24 +28,40 @@ def map_labels_to_ids(labels, emotion2idx):
         raise ValueError(f"Found labels not in emotion2idx: {missing}")
     return mapped.astype("int64").to_numpy()
 
+def _pick_feature_paths(mode):
+    if mode == "mean":
+        return Path("features_w2v2_rob_mean"), "multimodal_features.npz"
+    if mode == "confw":
+        return Path("features_confweighted"), "multimodal_features.npz"
 
 def main():
     DATA_DIR = Path("data_with_asr")
-    FEATURES_DIR = Path("features/conf_weighted")
-    OUTPUT_DIR = Path("results/gated_fusion")
+    if TEXT_FEATURES in ("mean", "confw"):
+        FEATURES_DIR, BASENAME = _pick_feature_paths(TEXT_FEATURES)
+        USE_CONF_IN_GATE = (TEXT_FEATURES == "mean")      
+        USE_AUX_LOSS     = False     
+        SCALE_TEXT_BY_CONF = False                       
+    else:
+        raise ValueError("Set TEXT_FEATURES to 'mean' or 'confw' unless you added the dual-text model.")
+
+    FEATURES_DIR = Path("features_w2v2_rob_mean")
+    OUTPUT_DIR = Path(f"results/gated_fusion_{TEXT_FEATURES}_softmax_temp_lambda0.02_no_aux")
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
     CONFIG = {
+        'text_feature': TEXT_FEATURES,
         'input_dim': 768,
         'hidden_dim': 256,
         'gate_hidden': 128,
-        'dropout': 0.2,
-        'use_aux_loss': True,
-        'lambda_gate': 0.1,
+        'dropout': 0.1,
+        'use_aux_loss': USE_AUX_LOSS,
+        'lambda_gate': 0.02,
         'learning_rate': 1e-4,
         'weight_decay': 1e-5,
         'batch_size': 32,
         'num_epochs': 50,
-        'patience': 10
+        'patience': 10,
+        'use_conf_in_gate': USE_CONF_IN_GATE,
+        'scale_text_by_conf': SCALE_TEXT_BY_CONF,
     }
 
     print("Confidence-Gated Fusion Training")
@@ -54,54 +74,109 @@ def main():
 
     # load data
     print("Loading training data...")
+    """
     train_audio, train_text, train_labels, train_confidences = load_data(
-        FEATURES_DIR / "train_multimodal_features_w.npz",
+        FEATURES_DIR / f"train_{BASENAME}",
         DATA_DIR / "train_with_asr.csv"
     )
     print("Loading validation data...")
     val_audio, val_text, val_labels, val_confidences = load_data(
-        FEATURES_DIR / "val_multimodal_features_w.npz",
+        FEATURES_DIR / f"val_{BASENAME}",
         DATA_DIR / "val_with_asr.csv"
     )
     print("Loading test data...")
     test_audio, test_text, test_labels, test_confidences = load_data(
-        FEATURES_DIR / "test_multimodal_features_w.npz",
+        FEATURES_DIR / f"test_{BASENAME}",
         DATA_DIR / "test_with_asr.csv"
     )
+    """
+    # mean features
+    a_tr_m, t_tr_m, y_tr, c_tr = load_data(
+        FEATURES_DIR/f"train_{BASENAME}", 
+        DATA_DIR/"train_with_asr.csv"
+    )
+    # conf-weighted features (same split order)
+    a_tr_c, t_tr_c, _, _ = load_data(
+        FEATURES_DIR/f"train_{BASENAME}", 
+        DATA_DIR/"train_with_asr.csv"
+    )
+    assert np.allclose(a_tr_m, a_tr_c) 
+
+    a_ts_m, t_ts_m, y_ts, c_ts = load_data(
+        FEATURES_DIR/f"test_{BASENAME}", 
+        DATA_DIR/"test_with_asr.csv"
+    )
+    # conf-weighted features (same split order)
+    a_ts_c, t_ts_c, _, _ = load_data(
+        FEATURES_DIR/f"test_{BASENAME}", 
+        DATA_DIR/"test_with_asr.csv"
+    )
+    assert np.allclose(a_ts_m, a_ts_c)  
+ 
+    a_val_m, t_val_m, y_val, c_val = load_data(
+        FEATURES_DIR/f"val_{BASENAME}", 
+        DATA_DIR/"val_with_asr.csv"
+    )
+    # conf-weighted features (same split order)
+    a_val_c, t_val_c, _, _ = load_data(
+        FEATURES_DIR/f"val_{BASENAME}", 
+        DATA_DIR/"val_with_asr.csv"
+    )
+    assert np.allclose(a_val_m, a_val_c) 
+    
 
     num_classes = len(emotion2idx)
     idx2emotion = {v: k for k, v in emotion2idx.items()}
     class_names = [idx2emotion[i] for i in range(num_classes)]
 
-    print(f"Train: {len(train_labels)}")
-    print(f"Val: {len(val_labels)}")
-    print(f"Test: {len(test_labels)}")
+    print(f"Train: {len(y_tr)}")
+    print(f"Val: {len(y_val)}")
+    print(f"Test: {len(y_ts)}")
     print(f"Classes ({num_classes}): {class_names}\n")
 
-    train_labels = map_labels_to_ids(train_labels, emotion2idx)
-    val_labels   = map_labels_to_ids(val_labels,   emotion2idx)
-    test_labels  = map_labels_to_ids(test_labels,  emotion2idx)
+    train_labels = map_labels_to_ids(y_tr, emotion2idx)
+    val_labels   = map_labels_to_ids(y_val, emotion2idx)
+    test_labels  = map_labels_to_ids(y_ts, emotion2idx)
 
-    train_confidences = np.asarray(train_confidences, dtype=np.float32)
-    val_confidences   = np.asarray(val_confidences,   dtype=np.float32)
-    test_confidences  = np.asarray(test_confidences,  dtype=np.float32)
+    train_confidences = np.asarray(c_tr, dtype=np.float32)
+    val_confidences   = np.asarray(c_val,   dtype=np.float32)
+    test_confidences  = np.asarray(c_ts,  dtype=np.float32)
 
-    train_audio = np.asarray(train_audio, dtype=np.float32)
-    val_audio   = np.asarray(val_audio,   dtype=np.float32)
-    test_audio  = np.asarray(test_audio,  dtype=np.float32)
+    train_audio = np.asarray(a_tr_m, dtype=np.float32)
+    val_audio   = np.asarray(a_val_m,   dtype=np.float32)
+    test_audio  = np.asarray(a_ts_m,  dtype=np.float32)
 
-    train_text  = np.asarray(train_text,  dtype=np.float32)
-    val_text    = np.asarray(val_text,    dtype=np.float32)
-    test_text   = np.asarray(test_text,   dtype=np.float32)
+    train_text_mean = np.asarray(t_tr_m, dtype=np.float32)
+    val_text_mean = np.asarray(t_val_m, dtype=np.float32)
+    test_text_mean = np.asarray(t_ts_m, dtype=np.float32)
+
+    train_text_confw = np.asarray(t_tr_c, dtype=np.float32)
+    val_text_confw = np.asarray(t_val_c, dtype=np.float32)
+    test_text_confw = np.asarray(t_ts_c, dtype=np.float32)
+
+    #train_text  = np.asarray(train_text,  dtype=np.float32)
+    #val_text    = np.asarray(val_text,    dtype=np.float32)
+    #test_text   = np.asarray(test_text,   dtype=np.float32)
+    
 
     # convert labels to indices
-    train_dataset = MultimodalDataset(train_audio, train_text, train_labels, train_confidences)
-    val_dataset = MultimodalDataset(val_audio, val_text, val_labels, val_confidences)
-    test_dataset = MultimodalDataset(test_audio, test_text, test_labels, test_confidences)
+    train_dataset = MultimodalDatasetDualText(
+        train_audio, train_text_mean, train_text_confw, train_labels, train_confidences
+    )
+    val_dataset = MultimodalDatasetDualText(
+        val_audio, val_text_mean, val_text_confw, val_labels, val_confidences
+    )
+    test_dataset = MultimodalDatasetDualText(
+        test_audio, test_text_mean, test_text_confw, test_labels, test_confidences
+    )
 
-    train_loader = DataLoader(train_dataset, batch_size=CONFIG['batch_size'], shuffle=False)
+    train_loader = DataLoader(train_dataset, batch_size=CONFIG['batch_size'], shuffle=True)
     val_loader = DataLoader(val_dataset, batch_size=CONFIG['batch_size'], shuffle=False)
     test_loader = DataLoader(test_dataset, batch_size=CONFIG['batch_size'], shuffle=False)
+
+    print("train shapes:", train_audio.shape, train_text_mean.shape, train_text_confw.shape, train_labels.shape, train_confidences.shape)
+    print("val shapes:  ", val_audio.shape,   val_text_mean.shape, val_text_confw.shape, val_labels.shape,   val_confidences.shape)
+    print("test shapes: ", test_audio.shape,  test_text_mean.shape, test_text_confw.shape, test_labels.shape,  test_confidences.shape)
 
     device = 'cuda' if torch.cuda.is_available() else 'mps'
     print(f"Using device: {device}\n")
@@ -113,7 +188,9 @@ def main():
         gate_hidden=CONFIG['gate_hidden'],
         dropout=CONFIG['dropout'],
         use_aux_loss=CONFIG['use_aux_loss'],
-        lambda_gate=CONFIG['lambda_gate']
+        lambda_gate=CONFIG['lambda_gate'],
+        use_conf_in_gate=CONFIG['use_conf_in_gate'],
+        scale_text_by_conf=CONFIG['scale_text_by_conf'],
     )
     
     print(f"Model parameters: {sum(p.numel() for p in model.parameters()):,}\n")
@@ -147,7 +224,8 @@ def main():
         test_loader,
         return_predictions=True
     )
-
+    
+    # quartiles by confidence
     conf_rows = bin_stats(
         values=test_results['confidences'], 
         preds=test_results['predictions'], 
@@ -177,8 +255,8 @@ def main():
     print(f"Test F1 (Macro): {test_results['f1_macro']:.4f}")
     print(f"Test F1 (Weighted): {test_results['f1_weighted']:.4f}")
     
-    print(f"\n{classification_report(test_results['labels'], test_results['predictions'], target_names=class_names, digits=4)}")
-    print(f"\n{confusion_matrix(test_results['labels'], test_results['predictions'])}")
+    print(classification_report(test_results['labels'], test_results['predictions'], target_names=class_names, digits=4))
+    print(confusion_matrix(test_results['labels'], test_results['predictions']))
     
     results_summary = {
         'config': CONFIG,
@@ -209,4 +287,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
