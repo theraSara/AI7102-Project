@@ -8,12 +8,6 @@ import warnings
 warnings.filterwarnings('ignore')
 
 class MultimodalDataset(Dataset):
-    """
-    dataset for loading:
-    - features
-    - labels
-    - confidence
-    """
     def __init__(self, audio_features, text_features, labels, confidences):
         self.audio_features = torch.as_tensor(audio_features, dtype=torch.float32)
         self.text_features  = torch.as_tensor(text_features,  dtype=torch.float32)

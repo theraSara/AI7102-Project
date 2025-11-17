@@ -1,0 +1,24 @@
+{
+  "config": {
+    "dim_a": 768,
+    "dim_t": 768,
+    "hidden_dim": 256,
+    "dropout": 0.2,
+    "learning_rate": 0.0001,
+    "weight_decay": 1e-05,
+    "batch_size": 32,
+    "num_epochs": 50,
+    "patience": 10
+  },
+  "test_accuracy": 0.5221948212083847,
+  "test_f1_macro": 0.5246621494035782,
+  "test_f1_weighted": 0.5126222965414734,
+  "best_val_f1": 0.5481044199616039,
+  "emotion2idx": {
+    "ang": 0,
+    "fru": 1,
+    "hap": 2,
+    "neu": 3,
+    "sad": 4
+  }
+}

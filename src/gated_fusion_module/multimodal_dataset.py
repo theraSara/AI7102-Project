@@ -30,3 +30,4 @@ class MultimodalDataset(Dataset):
             'label': self.labels[idx],
             'confidence': self.confidences[idx]
         }
+

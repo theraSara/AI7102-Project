@@ -56,40 +56,6 @@ def bin_stats(values, preds, labels, nbins=4):
                          acc=float(acc), f1_macro=float(f1m)))
     return rows
 
-def plot_gate_analysis(gate_audio, gate_text, confidences, save_path):
-    import numpy as np, matplotlib.pyplot as plt
-    fig, axes = plt.subplots(1, 3, figsize=(18, 5))
-
-    # 1) hist
-    axes[0].hist(gate_text, bins=50, color='steelblue', alpha=0.7, label='g_text')
-    axes[0].hist(gate_audio, bins=50, color='coral', alpha=0.7, label='g_audio')
-    axes[0].set_xlabel('Gate Value'); axes[0].set_ylabel('Frequency')
-    axes[0].set_title('Gate Distribution'); axes[0].legend(); axes[0].grid(alpha=0.3)
-
-    # 2) scatter + trend
-    axes[1].scatter(confidences, gate_text, alpha=0.3, s=10)
-    axes[1].set_xlabel('ASR Confidence'); axes[1].set_ylabel('Gate Text (g_t)')
-    axes[1].set_title('Gate vs Confidence'); axes[1].grid(alpha=0.3)
-    try:
-        z = np.polyfit(confidences, gate_text, 1)
-        p = np.poly1d(z)
-        axes[1].plot(confidences, p(confidences), "r--", alpha=0.8)
-    except Exception:
-        pass  # robust to degenerate cases
-
-    # 3) correlation
-    if len(confidences) > 1:
-        corr = float(np.corrcoef(confidences, gate_text)[0, 1])
-    else:
-        corr = float('nan')
-    axes[2].text(0.5, 0.5, f'Correlation:\n{corr:.3f}', ha='center', va='center', fontsize=20, fontweight='bold',
-                 transform=axes[2].transAxes)
-    axes[2].set_title('Gate-Confidence Correlation'); axes[2].axis('off')
-
-    plt.tight_layout(); plt.savefig(save_path, dpi=150)
-    print(f"Saved gate analysis to {save_path}"); plt.close()
-
-
 def plot_training_progress(train_losses, val_losses, alpha_means, alpha_stds, output_dir):
     """
     Plots training progress:
