@@ -1,7 +1,0 @@
-{
-  "audio_model": "facebook/wav2vec2-base",
-  "text_model": "glove@glove.6B.300d.txt",
-  "audio_pooling": "mean",
-  "text_pooling": "conf_weighted",
-  "notes": "eGeMAPS functionals are utterance-level fixed vectors; GloVe uses mean/conf_weighted by ASR word confidences."
-}

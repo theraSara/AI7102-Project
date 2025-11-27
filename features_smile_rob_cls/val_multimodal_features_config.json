@@ -1,7 +1,0 @@
-{
-  "audio_model": "openSMILE-eGeMAPSv02",
-  "text_model": "roberta-base",
-  "audio_pooling": "functionals",
-  "text_pooling": "cls",
-  "notes": "eGeMAPS functionals are utterance-level fixed vectors; GloVe uses mean/conf_weighted by ASR word confidences."
-}
