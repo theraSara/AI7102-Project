@@ -9,9 +9,10 @@ Our approach introduces a dynamic gate that adaptively weighs the Audio and Text
 ### Core Contributions
 
 **Confidence-Gated Fusion (CG-Fusion)**: A trainable gate mechanism that takes the ASR confidence score ($c$) as input to dynamically calculate the weights for audio ($\mathbf{g}_A$) and text ($\mathbf{g}_T$).
-$$
+
+$
 \text{Fused Feature} = \mathbf{g}_A \cdot \text{Proj}(\mathbf{F}_A) + \mathbf{g}_T \cdot \text{Proj}(\mathbf{F}_T)
-$$
+$
 
 **Dual-Text Mixing**: We utilize both mean-pooled and confidence-weighted text embeddings, blending them via a learned mixer (DualTextMixer) to create an optimized, high-quality text representation ($\mathbf{F}_{\hat{T}}$) before it reaches the fusion gate.
 
