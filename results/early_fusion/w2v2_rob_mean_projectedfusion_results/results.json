@@ -7,13 +7,13 @@
     "learning_rate": 0.0001,
     "weight_decay": 1e-05,
     "batch_size": 32,
-    "num_epochs": 2,
+    "num_epochs": 50,
     "patience": 10
   },
-  "test_accuracy": 0.468557336621455,
-  "test_f1_macro": 0.47592046475054356,
-  "test_f1_weighted": 0.4606506265670855,
-  "best_val_f1": 0.45456347922596196,
+  "test_accuracy": 0.6183723797780518,
+  "test_f1_macro": 0.6198832985621204,
+  "test_f1_weighted": 0.6221639615312691,
+  "best_val_f1": 0.6601425494359865,
   "emotion2idx": {
     "ang": 0,
     "fru": 1,

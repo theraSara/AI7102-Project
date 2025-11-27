@@ -1,0 +1,7 @@
+{
+  "timestamp": "2025-11-17 15:48:45.789150",
+  "best_val_f1": 0.5926852784795598,
+  "best_epoch": 27,
+  "device": "cuda",
+  "save_dir": "results/early_fusion/confweighted_results"
+}

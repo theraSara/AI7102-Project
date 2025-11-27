@@ -1,0 +1,7 @@
+{
+  "timestamp": "2025-11-17 05:16:23.973458",
+  "best_val_f1": 0.5435429578251478,
+  "best_epoch": 25,
+  "device": "cpu",
+  "save_dir": "results/early_fusion/w2v2_rob_cls_weightedfusion_results"
+}
