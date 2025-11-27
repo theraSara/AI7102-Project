@@ -85,7 +85,7 @@ pip install -r requirements.txt
 ### Data Preparation
 
 A. Dataset
-This project uses the IEMOCAP dataset. You must download the raw audio and ground-truth transcripts separately.
+This project uses the **IEMOCAP** dataset. To use it, you must download the raw audio and ground-truth transcripts separately. You can obtain the dataset by registering on the official IEMOCAP page: <https://sail.usc.edu/iemocap/iemocap_release.htm> Additional information about IEMOCAP can be found here:<https://sail.usc.edu/iemocap/>.
 
 B. Feature Generation Pipeline
 The models expect pre-extracted, high-dimensional features (e.g., from Wav2Vec 2.0 and RoBERTa) and ASR confidence scores. The complete process is:
