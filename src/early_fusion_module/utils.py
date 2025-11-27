@@ -1,82 +1,75 @@
 import numpy as np
+import pandas as pd
 import matplotlib.pyplot as plt
-from sklearn.metrics import confusion_matrix
+from sklearn.metrics import accuracy_score, f1_score
+
 import warnings
-warnings.filterwarnings("ignore")
+warnings.filterwarnings('ignore')
 
 
-# =========================
-# 1. Training curves
-# =========================
-def plot_training_history(trainer, save_path='training_curves.png'):
-    import matplotlib.pyplot as plt
-
-    fig, axes = plt.subplots(1, 3, figsize=(18, 5))
-
-    # ---- Loss ----
-    axes[0].plot(trainer.train_losses, "b-", label="Train Loss", linewidth=2)
-    axes[0].plot(trainer.val_losses, "r-", label="Val Loss", linewidth=2)
-    axes[0].set_xlabel("Epoch")
-    axes[0].set_ylabel("Loss")
-    axes[0].set_title("Training & Validation Loss")
-    axes[0].legend()
-    axes[0].grid(alpha=0.3)
-
-    # ---- Accuracy ----
-    axes[1].plot(trainer.val_accuracies, "g-", linewidth=2)
-    axes[1].set_xlabel("Epoch")
-    axes[1].set_ylabel("Accuracy")
-    axes[1].set_title("Validation Accuracy")
-    axes[1].grid(alpha=0.3)
-
-    # ---- F1 Score ----
-    axes[2].plot(trainer.val_f1_scores, "m-", linewidth=2)
-    axes[2].set_xlabel("Epoch")
-    axes[2].set_ylabel("F1 Score (Macro)")
-    axes[2].set_title("Validation F1 Score")
-    axes[2].grid(alpha=0.3)
-
-    plt.tight_layout()
-    plt.savefig(save_path, dpi=300)
-    print(f"✅ Saved training curves to {save_path}")
-    plt.close()
-
-
-
-
-# =========================
-# 2. Confusion matrix
-# =========================
-def plot_confusion_matrix(labels, predictions, class_names, save_path="confusion_matrix.png"):
+def load_data(features_path, csv_path):
     """
-    Plot a confusion matrix for classification results.
+    Load pre-extracted audio and text features and their emotion labels.
+    Compatible with early fusion models (no confidence values used).
     """
-    cm = confusion_matrix(labels, predictions)
-    fig, ax = plt.subplots(figsize=(8, 6))
+    data = np.load(features_path)
+    audio_features = data['audio_features']
+    text_features = data['text_features']
 
-    im = ax.imshow(cm, cmap="Blues")
-    fig.colorbar(im, ax=ax, fraction=0.046, pad=0.04)
-    ax.set_xticks(np.arange(len(class_names)))
-    ax.set_yticks(np.arange(len(class_names)))
-    ax.set_xticklabels(class_names, rotation=45, ha="right")
-    ax.set_yticklabels(class_names)
-    ax.set_xlabel("Predicted Label")
-    ax.set_ylabel("True Label")
-    ax.set_title("Confusion Matrix - Early Fusion Model")
+    df = pd.read_csv(csv_path)
+    labels = df['emotion'].values
 
-    thresh = cm.max() / 2.0
-    for i in range(cm.shape[0]):
-        for j in range(cm.shape[1]):
-            ax.text(
-                j,
-                i,
-                format(cm[i, j], "d"),
-                ha="center",
-                va="center",
-                color="white" if cm[i, j] > thresh else "black",
-            )
+    # If confidence scores exist, ignore them but load safely
+    if 'utterance_confidence' in df.columns:
+        _ = df['utterance_confidence']  # not used in early fusion
+    else:
+        print("No confidence scores found (not required for early fusion).")
 
+    return audio_features, text_features, labels
+
+
+def bin_stats(values, preds, labels, nbins=4):
+    """
+    Compute accuracy and F1 metrics in bins for any numeric value (optional use).
+    Example usage: analyze performance vs. feature magnitude or sentence length.
+    """
+    v = np.asarray(values).reshape(-1)
+    p = np.asarray(preds).reshape(-1)
+    y = np.asarray(labels).reshape(-1)
+
+    edges = np.quantile(v, np.linspace(0, 1, nbins + 1))
+    edges[-1] = np.nextafter(edges[-1], np.inf)
+
+    rows = []
+    for i in range(nbins):
+        lo, hi = edges[i], edges[i + 1]
+        mask = (v >= lo) & (v < hi)
+        if mask.sum() == 0:
+            rows.append(dict(bin_lo=float(lo), bin_hi=float(hi), n=0, acc=np.nan, f1_macro=np.nan))
+            continue
+        acc = accuracy_score(y[mask], p[mask])
+        f1m = f1_score(y[mask], p[mask], average='macro')
+        rows.append(dict(bin_lo=float(lo), bin_hi=float(hi), n=int(mask.sum()),
+                         acc=float(acc), f1_macro=float(f1m)))
+    return rows
+
+
+def plot_training_curves(train_losses, val_losses, val_f1_scores, save_path):
+    """
+    Optional visualization: training and validation curves for Early Fusion model.
+    """
+    plt.figure(figsize=(8, 5))
+
+    plt.plot(train_losses, label="Train Loss", color="tab:blue")
+    plt.plot(val_losses, label="Val Loss", color="tab:orange")
+    plt.plot(val_f1_scores, label="Val F1 (macro)", color="tab:green")
+
+    plt.xlabel("Epoch")
+    plt.ylabel("Value")
+    plt.title("Training Curves (Early Fusion)")
+    plt.legend()
+    plt.grid(alpha=0.3)
     plt.tight_layout()
-    plt.savefig(save_path, dpi=300)
-    print(f"Saved confusion matrix to {save_path}")
+    plt.savefig(save_path, dpi=150)
+    print(f"Saved training curve to {save_path}")
     plt.close()
