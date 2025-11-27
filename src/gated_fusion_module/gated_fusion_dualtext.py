@@ -12,7 +12,7 @@ from .dual_text_mixer import DualTextMixer
 
 class GatedFusionModelDualText(nn.Module):
     def __init__(self, input_dim=768, hidden_dim=256, num_classes=5, gate_hidden=128, dropout=0.2,
-                 use_conf_in_gate=True, lambda_gate=0.1):
+                 use_aux_loss=False, use_conf_in_gate=True, lambda_gate=0.1):
         super().__init__()
 
         self.proj_a  = nn.Sequential(nn.LayerNorm(input_dim), nn.Linear(input_dim, hidden_dim), nn.GELU())
@@ -20,7 +20,7 @@ class GatedFusionModelDualText(nn.Module):
         self.proj_tc = nn.Sequential(nn.LayerNorm(input_dim), nn.Linear(input_dim, hidden_dim), nn.GELU())
 
         self.mixer = DualTextMixer(hidden_dim=hidden_dim, mix_hidden=128, use_conf=True, use_agree=True)
-        self.gate  = ConfidenceGate(hidden_dim=hidden_dim, gate_hidden=gate_hidden, use_aux_loss=True, 
+        self.gate  = ConfidenceGate(hidden_dim=hidden_dim, gate_hidden=gate_hidden, use_aux_loss=use_aux_loss, 
                                     lambda_gate=lambda_gate, use_conf_in_gate=use_conf_in_gate)
         self.head  = Classifier(hidden_dim, num_classes, dropout)
 

@@ -5,7 +5,6 @@ from pathlib import Path
 import torch
 from torch.utils.data import DataLoader
 
-# reuse your existing trainer & dataset
 from src.gated_fusion_module.multimodal_dataset import MultimodalDataset
 from src.gated_fusion_module.gated_fusion_trainer import GatedFusionTrainer
 
